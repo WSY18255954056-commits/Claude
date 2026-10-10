@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}统计报表{% endblock %}
+{% block content %}
+<h1>统计报表
+  <span class="actions"><a class="btn" href="{{ url_for('reservations', date_from=date_from, date_to=date_to, export='csv') }}">导出该区间明细 CSV</a></span>
+</h1>
+
+<form class="card filters" method="get">
+  <div><label>预约日期从</label><input type="date" name="date_from" value="{{ date_from }}"></div>
+  <div><label>至</label><input type="date" name="date_to" value="{{ date_to }}"></div>
+  <div><button class="btn">统计</button></div>
+</form>
+
+<div class="grid grid-4">
+  <div class="card stat"><div class="num">{{ totals.count }}</div><div class="label">有效预约 (不含取消)</div></div>
+  <div class="card stat"><div class="num">{{ totals.reserved|h }}</div><div class="label">预约总时长 (h)</div></div>
+  <div class="card stat"><div class="num">{{ totals.actual|h }}</div><div class="label">实际使用总时长 (h)</div></div>
+  <div class="card stat"><div class="num">{{ totals.no_show }}</div><div class="label">爽约次数</div></div>
+</div>
+
+{% macro table(rows, kind) %}
+  {% if rows %}
+  {% set max_actual = (rows|map(attribute='actual')|max) or 1 %}
+  <div class="table-wrap"><table>
+    <tr><th>{{ '仪器' if kind == 'eq' else '使用人' }}</th><th class="num-col">预约次数</th><th class="num-col">完成</th>
+        <th class="num-col">爽约</th><th class="num-col">超时</th><th class="num-col">预约时长</th><th class="num-col">实际时长</th>
+        <th class="num-col">履约率</th>{% if kind == 'eq' %}<th class="num-col">利用率*</th>{% endif %}<th style="min-width:120px"></th></tr>
+    {% for b in rows %}
+    <tr>
+      <td><a href="{{ url_for('equipment_detail', eid=b.id) if kind == 'eq' else url_for('user_detail', uid=b.id) }}">{{ b.name }}</a></td>
+      <td class="num-col">{{ b.count }}</td>
+      <td class="num-col">{{ b.done }}</td>
+      <td class="num-col">{{ b.no_show }}</td>
+      <td class="num-col">{{ b.overtime }}</td>
+      <td class="num-col">{{ b.reserved|h }} h</td>
+      <td class="num-col">{{ b.actual|h }} h</td>
+      <td class="num-col">{{ '%.0f'|format(b.actual / b.reserved * 100) if b.reserved else 0 }}%</td>
+      {% if kind == 'eq' %}<td class="num-col">{{ '%.1f'|format(b.utilization) }}%</td>{% endif %}
+      <td><div style="background:var(--primary-weak);border-radius:3px;height:8px">
+        <div style="background:var(--primary);height:8px;border-radius:3px;width:{{ (b.actual / max_actual * 100)|round(1) }}%"></div></div></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<div class="empty">该区间内没有数据</div>{% endif %}
+{% endmacro %}
+
+<div class="card"><h2>按仪器统计</h2>{{ table(by_eq, 'eq') }}
+  <p class="muted" style="margin-bottom:0">履约率 = 实际使用时长 / 预约时长; 利用率 = 实际使用时长 / (统计天数 × 8 小时); 超时 = 实际结束晚于预约结束。</p></div>
+<div class="card"><h2>按使用人统计</h2>{{ table(by_user, 'user') }}</div>
+{% endblock %}

@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 genotype_results/
+lab_equipment/*.db
+.pytest_cache/

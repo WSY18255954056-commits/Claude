@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, actions %}
+{% block title %}预约 #{{ r.id }}{% endblock %}
+{% block content %}
+<h1>预约 #{{ r.id }} {{ status_badge(r, now) }}
+  <span class="actions">
+    {{ actions(r, compact=false) }}
+    {% if r.status == '已预约' %}
+      <a class="btn" href="{{ url_for('reservation_edit', rid=r.id) }}">修改</a>
+      {% if r.start_time < now %}
+      <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}">
+        <button class="btn btn-danger">标记爽约</button></form>
+      {% endif %}
+    {% endif %}
+  </span>
+</h1>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>预约信息</h2>
+    <dl class="kv">
+      <dt>仪器</dt><dd><a href="{{ url_for('equipment_detail', eid=r.equipment_id) }}">{{ r.equipment_name }}</a> <span class="muted">{{ r.location }}</span></dd>
+      <dt>使用人</dt><dd><a href="{{ url_for('user_detail', uid=r.user_id) }}">{{ r.user_name }}</a> <span class="muted">{{ r.department }}</span></dd>
+      <dt>预约时间</dt><dd>{{ r.start_time|t }} ~ {{ r.end_time|t }}</dd>
+      <dt>预约时长</dt><dd>{{ hours_between(r.start_time, r.end_time)|h }} 小时</dd>
+      <dt>用途</dt><dd style="white-space:pre-wrap">{{ r.purpose or '—' }}</dd>
+      <dt>创建时间</dt><dd>{{ r.created_at|t }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>实际使用</h2>
+    <dl class="kv">
+      <dt>实际开始</dt><dd>{{ r.actual_start|t }}</dd>
+      <dt>实际结束</dt><dd>{{ r.actual_end|t if r.actual_end else ('使用中' if r.status == '使用中' else '—') }}</dd>
+      <dt>实际时长</dt><dd>
+        {% if r.actual_end %}{{ hours_between(r.actual_start, r.actual_end)|h }} 小时
+          {% set diff = hours_between(r.actual_start, r.actual_end) - hours_between(r.start_time, r.end_time) %}
+          {% if r.actual_end > r.end_time %}<span class="badge s-爽约">超出预约结束时间</span>{% endif %}
+          <span class="muted">(较预约 {{ '+' if diff >= 0 }}{{ diff|h }} h)</span>
+        {% elif r.status == '使用中' %}已使用 {{ hours_between(r.actual_start, now)|h }} 小时
+        {% else %}—{% endif %}</dd>
+      <dt>使用说明</dt><dd style="white-space:pre-wrap">{{ r.usage_note or '—' }}</dd>
+    </dl>
+
+    {% if r.status == '使用中' %}
+    <form method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}" style="margin-top:12px">
+      <label>使用情况 / 异常说明 (签退时填写)</label>
+      <textarea name="usage_note">{{ r.usage_note }}</textarea>
+      <p style="margin-bottom:0"><button class="btn btn-primary">下机签退</button></p>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if r.status in ('已预约', '已完成', '爽约') %}
+<div class="card">
+  <h2>{{ '修正' if r.status == '已完成' else '补录' }}实际使用时间</h2>
+  <p class="muted" style="margin-top:0">适用于忘记签到/签退, 或需要更正实际使用时间的情况。保存后预约状态将变为「已完成」。</p>
+  <form method="post" action="{{ url_for('reservation_record', rid=r.id) }}">
+    <div class="form-grid">
+      <div><label>实际开始时间 *</label><input type="datetime-local" name="actual_start" required value="{{ r.actual_start or r.start_time }}"></div>
+      <div><label>实际结束时间 *</label><input type="datetime-local" name="actual_end" required value="{{ r.actual_end or (r.end_time if r.end_time < now else now) }}"></div>
+      <div class="full"><label>使用说明</label><textarea name="usage_note">{{ r.usage_note }}</textarea></div>
+    </div>
+    <p style="margin-bottom:0"><button class="btn btn-primary">保存使用记录</button></p>
+  </form>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('reservation_delete', rid=r.id) }}" onsubmit="return confirm('确定永久删除这条记录?')">
+  <button class="btn btn-danger btn-sm">删除此记录</button>
+</form>
+{% endblock %}

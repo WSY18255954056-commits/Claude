@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ '修改预约' if r.id else '新建预约' }}{% endblock %}
+{% block content %}
+<h1>{{ '修改预约' if r.id else '新建预约' }}</h1>
+{% if not users %}
+<div class="flash flash-info">还没有使用人, 请先 <a href="{{ url_for('users') }}">添加使用人</a>。</div>
+{% endif %}
+<form class="card" method="post">
+  <div class="form-grid">
+    <div><label>仪器 *</label>
+      <select name="equipment_id" required>
+        <option value="">— 请选择 —</option>
+        {% for e in equipment %}
+        <option value="{{ e.id }}" {{ 'selected' if e.id == r.equipment_id }}>
+          {{ e.name }}{% if e.location %} ({{ e.location }}){% endif %}{% if e.max_hours %} · 单次≤{{ e.max_hours }}h{% endif %}
+        </option>
+        {% endfor %}
+      </select></div>
+    <div><label>使用人 *</label>
+      <select name="user_id" required>
+        <option value="">— 请选择 —</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {{ 'selected' if u.id == r.user_id }}>{{ u.name }}{% if u.department %} · {{ u.department }}{% endif %}</option>
+        {% endfor %}
+      </select></div>
+    <div><label>预约开始时间 *</label><input type="datetime-local" name="start_time" required value="{{ r.start_time or '' }}"></div>
+    <div><label>预约结束时间 *</label><input type="datetime-local" name="end_time" required value="{{ r.end_time or '' }}"></div>
+    <div class="full"><label>用途 / 实验内容</label><textarea name="purpose">{{ r.purpose or '' }}</textarea></div>
+  </div>
+  <p style="margin-bottom:0">
+    <button class="btn btn-primary">{{ '保存修改' if r.id else '提交预约' }}</button>
+    <a class="btn" href="{{ url_for('reservation_detail', rid=r.id) if r.id else url_for('reservations') }}">返回</a>
+  </p>
+</form>
+<p class="muted">系统会自动检查同一仪器的时间冲突以及单次最长预约时长。</p>
+{% endblock %}

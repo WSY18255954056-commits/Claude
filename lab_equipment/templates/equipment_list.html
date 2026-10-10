@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}仪器列表{% endblock %}
+{% block content %}
+<h1>仪器列表
+  <span class="actions"><a class="btn btn-primary" href="{{ url_for('equipment_new') }}">+ 添加仪器</a></span>
+</h1>
+
+<form class="card filters" method="get">
+  <div><label>关键词</label><input name="q" value="{{ q }}" placeholder="名称/型号/编号/位置"></div>
+  <div><label>状态</label>
+    <select name="status"><option value="">全部</option>
+      {% for s in statuses %}<option {{ 'selected' if s == status }}>{{ s }}</option>{% endfor %}
+    </select></div>
+  <div><button class="btn">筛选</button></div>
+</form>
+
+<div class="card table-wrap">
+  {% if rows %}
+  <table>
+    <tr><th>名称</th><th>型号</th><th>编号</th><th>位置</th><th>负责人</th><th>单次上限</th><th>状态</th><th></th></tr>
+    {% for e in rows %}
+    <tr>
+      <td><a href="{{ url_for('equipment_detail', eid=e.id) }}">{{ e.name }}</a></td>
+      <td>{{ e.model }}</td>
+      <td>{{ e.serial_no }}</td>
+      <td>{{ e.location }}</td>
+      <td>{{ e.manager }}</td>
+      <td>{{ (e.max_hours|string + ' h') if e.max_hours else '不限' }}</td>
+      <td><span class="badge s-{{ e.status }}">{{ e.status }}</span>
+          {% if e.in_use %}<span class="badge s-使用中">使用中</span>{% endif %}</td>
+      <td>{% if e.status == '可用' %}<a class="btn btn-sm" href="{{ url_for('reservation_new', equipment_id=e.id) }}">预约</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<div class="empty">没有找到仪器</div>{% endif %}
+</div>
+{% endblock %}

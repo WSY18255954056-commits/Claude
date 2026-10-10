@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, actions %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block content %}
+<h1>{{ item.name }} <span class="badge s-{{ item.status }}">{{ item.status }}</span>
+  <span class="actions">
+    {% if item.status == '可用' %}<a class="btn btn-primary" href="{{ url_for('reservation_new', equipment_id=item.id) }}">预约此仪器</a>{% endif %}
+    <a class="btn" href="{{ url_for('schedule', date=today) }}">查看日程</a>
+    <a class="btn" href="{{ url_for('equipment_edit', eid=item.id) }}">编辑</a>
+    <form class="inline" method="post" action="{{ url_for('equipment_delete', eid=item.id) }}"
+          onsubmit="return confirm('删除仪器将同时删除其所有预约和维护记录, 确定?')">
+      <button class="btn btn-danger">删除</button></form>
+  </span>
+</h1>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>基本信息</h2>
+    <dl class="kv">
+      <dt>型号</dt><dd>{{ item.model or '—' }}</dd>
+      <dt>资产编号</dt><dd>{{ item.serial_no or '—' }}</dd>
+      <dt>放置位置</dt><dd>{{ item.location or '—' }}</dd>
+      <dt>负责人</dt><dd>{{ item.manager or '—' }}</dd>
+      <dt>单次上限</dt><dd>{{ (item.max_hours|string + ' 小时') if item.max_hours else '不限' }}</dd>
+      <dt>说明</dt><dd style="white-space:pre-wrap">{{ item.description or '—' }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>使用概况 <span class="muted" style="font-weight:normal">(最近 50 条记录)</span></h2>
+    <div class="grid grid-4">
+      <div class="stat"><div class="num">{{ summary.count }}</div><div class="label">完成使用次数</div></div>
+      <div class="stat"><div class="num">{{ summary.hours|h }}</div><div class="label">实际使用小时</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card table-wrap">
+  <h2>预约与使用记录</h2>
+  {% if reservations %}
+  <table>
+    <tr><th>使用人</th><th>预约时间</th><th>实际使用时间</th><th class="num-col">实际时长</th><th>用途</th><th>状态</th><th></th></tr>
+    {% for r in reservations %}
+    <tr>
+      <td><a href="{{ url_for('user_detail', uid=r.user_id) }}">{{ r.user_name }}</a></td>
+      <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
+      <td>{% if r.actual_start %}{{ r.actual_start|t }} ~ {{ r.actual_end[11:] if r.actual_end else '进行中' }}{% else %}—{% endif %}</td>
+      <td class="num-col">{{ hours_between(r.actual_start, r.actual_end)|h if r.actual_end else '—' }}</td>
+      <td>{{ r.purpose }}</td>
+      <td>{{ status_badge(r, now_str()) }}</td>
+      <td><a class="btn btn-sm" href="{{ url_for('reservation_detail', rid=r.id) }}">详情</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<div class="empty">暂无记录</div>{% endif %}
+</div>
+
+<div class="card">
+  <h2>维护记录</h2>
+  <form method="post" action="{{ url_for('maintenance_add', eid=item.id) }}" class="filters" style="margin-bottom:12px">
+    <div><label>日期</label><input type="date" name="date" value="{{ today }}"></div>
+    <div style="flex:1;min-width:220px"><label>维护内容 *</label><input name="content" required style="width:100%"></div>
+    <div><label>操作人</label><input name="operator"></div>
+    <div><label>费用 (元)</label><input name="cost" type="number" min="0" step="0.01"></div>
+    <div><button class="btn btn-primary">添加</button></div>
+  </form>
+  {% if maint %}
+  <div class="table-wrap"><table>
+    <tr><th>日期</th><th>内容</th><th>操作人</th><th class="num-col">费用</th><th></th></tr>
+    {% for m in maint %}
+    <tr><td>{{ m.date }}</td><td>{{ m.content }}</td><td>{{ m.operator }}</td>
+        <td class="num-col">{{ '%.2f'|format(m.cost or 0) }}</td>
+        <td><form class="inline" method="post" action="{{ url_for('maintenance_delete', mid=m.id) }}"
+                  onsubmit="return confirm('删除该维护记录?')"><button class="btn btn-sm btn-danger">删除</button></form></td></tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<div class="empty">暂无维护记录</div>{% endif %}
+</div>
+{% endblock %}

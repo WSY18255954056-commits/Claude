@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, actions %}
+{% block title %}首页{% endblock %}
+{% block content %}
+<h1>概览
+  <span class="actions">
+    <a class="btn btn-primary" href="{{ url_for('reservation_new') }}">+ 新建预约</a>
+  </span>
+</h1>
+
+<div class="grid grid-4">
+  <div class="card stat"><div class="num">{{ counts.equipment }}</div><div class="label">仪器总数</div></div>
+  <div class="card stat"><div class="num">{{ counts.available }}</div><div class="label">可预约仪器</div></div>
+  <div class="card stat"><div class="num">{{ in_use|length }}</div><div class="label">正在使用</div></div>
+  <div class="card stat"><div class="num">{{ counts.today }}</div><div class="label">今日预约</div></div>
+</div>
+
+<div class="card">
+  <h2>正在使用</h2>
+  {% if in_use %}
+  <div class="table-wrap"><table>
+    <tr><th>仪器</th><th>使用人</th><th>预约时段</th><th>上机时间</th><th>已用时长</th><th></th></tr>
+    {% for r in in_use %}
+    <tr>
+      <td><a href="{{ url_for('equipment_detail', eid=r.equipment_id) }}">{{ r.equipment_name }}</a>
+          <div class="muted">{{ r.location }}</div></td>
+      <td>{{ r.user_name }}</td>
+      <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
+      <td>{{ r.actual_start|t }}</td>
+      <td class="num-col">{{ hours_between(r.actual_start, now)|h }} h</td>
+      <td>{{ actions(r) }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<div class="empty">当前没有仪器在使用</div>{% endif %}
+</div>
+
+{% if overdue %}
+<div class="card">
+  <h2>已过预约时间但未签到 <span class="muted" style="font-weight:normal">— 请确认是否爽约或补录使用时间</span></h2>
+  <div class="table-wrap"><table>
+    <tr><th>仪器</th><th>使用人</th><th>预约时段</th><th></th></tr>
+    {% for r in overdue %}
+    <tr>
+      <td>{{ r.equipment_name }}</td>
+      <td>{{ r.user_name }}</td>
+      <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
+      <td>
+        <a class="btn btn-sm" href="{{ url_for('reservation_detail', rid=r.id) }}">补录使用时间</a>
+        <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}">
+          <button class="btn btn-sm btn-danger">标记爽约</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>即将开始的预约</h2>
+  {% if upcoming %}
+  <div class="table-wrap"><table>
+    <tr><th>仪器</th><th>使用人</th><th>预约时段</th><th>用途</th><th>状态</th><th></th></tr>
+    {% for r in upcoming %}
+    <tr>
+      <td><a href="{{ url_for('reservation_detail', rid=r.id) }}">{{ r.equipment_name }}</a></td>
+      <td>{{ r.user_name }}</td>
+      <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
+      <td>{{ r.purpose }}</td>
+      <td>{{ status_badge(r, now) }}</td>
+      <td>{{ actions(r) }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<div class="empty">暂无预约</div>{% endif %}
+</div>
+{% endblock %}

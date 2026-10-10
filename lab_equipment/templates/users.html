@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}使用人{% endblock %}
+{% block content %}
+<h1>使用人</h1>
+<form class="card" method="post">
+  <h2>添加使用人</h2>
+  <div class="form-grid">
+    <div><label>姓名 *</label><input name="name" required></div>
+    <div><label>课题组 / 部门</label><input name="department"></div>
+    <div><label>电话</label><input name="phone"></div>
+    <div><label>邮箱</label><input name="email" type="email"></div>
+    <div><label>角色</label><select name="role">{% for r in roles %}<option>{{ r }}</option>{% endfor %}</select></div>
+    <div style="align-self:end"><button class="btn btn-primary">添加</button></div>
+  </div>
+</form>
+
+<div class="card table-wrap">
+  {% if rows %}
+  <table>
+    <tr><th>姓名</th><th>课题组 / 部门</th><th>角色</th><th>电话</th><th>邮箱</th><th class="num-col">预约次数</th><th></th></tr>
+    {% for u in rows %}
+    <tr>
+      <td><a href="{{ url_for('user_detail', uid=u.id) }}">{{ u.name }}</a></td>
+      <td>{{ u.department }}</td><td>{{ u.role }}</td><td>{{ u.phone }}</td><td>{{ u.email }}</td>
+      <td class="num-col">{{ u.res_count }}</td>
+      <td><a class="btn btn-sm" href="{{ url_for('reservation_new', user_id=u.id) }}">为其预约</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<div class="empty">暂无使用人</div>{% endif %}
+</div>
+{% endblock %}

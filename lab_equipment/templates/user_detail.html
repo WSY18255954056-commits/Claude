@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, actions %}
+{% block title %}{{ user.name }}{% endblock %}
+{% block content %}
+<h1>{{ user.name }} <span class="muted" style="font-weight:normal;font-size:14px">{{ user.role }} · {{ user.department }}</span>
+  <span class="actions">
+    <a class="btn btn-primary" href="{{ url_for('reservation_new', user_id=user.id) }}">为其预约</a>
+    <form class="inline" method="post" action="{{ url_for('user_delete', uid=user.id) }}"
+          onsubmit="return confirm('删除使用人将同时删除其全部预约与使用记录, 确定?')">
+      <button class="btn btn-danger">删除</button></form>
+  </span>
+</h1>
+
+{% set done = records|selectattr('status', 'equalto', '已完成')|list %}
+{% set ns = namespace(hours=0) %}
+{% for r in done %}{% set ns.hours = ns.hours + hours_between(r.actual_start, r.actual_end) %}{% endfor %}
+<div class="grid grid-4">
+  <div class="card stat"><div class="num">{{ records|rejectattr('status', 'equalto', '已取消')|list|length }}</div><div class="label">预约次数</div></div>
+  <div class="card stat"><div class="num">{{ done|length }}</div><div class="label">完成使用</div></div>
+  <div class="card stat"><div class="num">{{ ns.hours|h }}</div><div class="label">累计使用小时</div></div>
+  <div class="card stat"><div class="num">{{ records|selectattr('status', 'equalto', '爽约')|list|length }}</div><div class="label">爽约次数</div></div>
+</div>
+
+<form class="card" method="post">
+  <h2>基本信息</h2>
+  <div class="form-grid">
+    <div><label>姓名 *</label><input name="name" required value="{{ user.name }}"></div>
+    <div><label>课题组 / 部门</label><input name="department" value="{{ user.department }}"></div>
+    <div><label>电话</label><input name="phone" value="{{ user.phone }}"></div>
+    <div><label>邮箱</label><input name="email" type="email" value="{{ user.email }}"></div>
+    <div><label>角色</label><select name="role">{% for r in roles %}<option {{ 'selected' if r == user.role }}>{{ r }}</option>{% endfor %}</select></div>
+    <div style="align-self:end"><button class="btn btn-primary">保存</button></div>
+  </div>
+</form>
+
+<div class="card table-wrap">
+  <h2>使用记录</h2>
+  {% if records %}
+  <table>
+    <tr><th>仪器</th><th>预约时间</th><th>实际使用时间</th><th class="num-col">实际时长</th><th>状态</th><th></th></tr>
+    {% for r in records %}
+    <tr>
+      <td><a href="{{ url_for('equipment_detail', eid=r.equipment_id) }}">{{ r.equipment_name }}</a></td>
+      <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
+      <td>{% if r.actual_start %}{{ r.actual_start|t }} ~ {{ r.actual_end[11:] if r.actual_end else '进行中' }}{% else %}—{% endif %}</td>
+      <td class="num-col">{{ hours_between(r.actual_start, r.actual_end)|h if r.actual_end else '—' }}</td>
+      <td>{{ status_badge(r, now_str()) }}</td>
+      <td style="white-space:nowrap">{{ actions(r) }} <a class="btn btn-sm" href="{{ url_for('reservation_detail', rid=r.id) }}">详情</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<div class="empty">暂无记录</div>{% endif %}
+</div>
+{% endblock %}
