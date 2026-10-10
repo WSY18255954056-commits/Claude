@@ -1,0 +1,182 @@
+:root {
+  --bg: #0b0b0f;
+  --panel: rgba(18, 18, 24, 0.86);
+  --border: #2a2a33;
+  --text: #f4f4f7;
+  --muted: #9a9aa8;
+  --accent: #ffd166;
+  --control-bg: #1c1c24;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.app {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 主舞台：摄像头画面铺满 */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+#camera {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#gl,
+#debug {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.badge {
+  background: var(--accent);
+  color: #111;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+
+.badge.window {
+  background: #4cc9f0;
+}
+
+.status {
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.notice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  line-height: 1.7;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+/* 底部控制区 */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.selectors {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.selectors label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 150px;
+}
+
+select,
+button {
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+button {
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.hint {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .controls {
+    padding: 10px 12px;
+  }
+
+  .selectors {
+    width: 100%;
+  }
+
+  .selectors label {
+    flex: 1 1 100%;
+  }
+}

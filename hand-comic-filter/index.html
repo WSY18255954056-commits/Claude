@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>手势漫画滤镜</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <main class="stage">
+      <!-- 视频元素只作为帧源，不直接显示；画面由 WebGL 画布绘制 -->
+      <video id="camera" playsinline muted autoplay></video>
+      <canvas id="gl"></canvas>
+      <canvas id="debug"></canvas>
+
+      <div class="hud">
+        <span id="mode-badge" class="badge">普通模式</span>
+        <span id="status" class="status">正在准备…</span>
+      </div>
+      <div id="notice" class="notice" hidden></div>
+    </main>
+
+    <footer class="controls">
+      <div class="selectors">
+        <label>
+          <span>Thumb → Index</span>
+          <select id="region-filter-0"></select>
+        </label>
+        <label>
+          <span>Index → Middle</span>
+          <select id="region-filter-1"></select>
+        </label>
+        <label>
+          <span>Middle → Pinky</span>
+          <select id="region-filter-2"></select>
+        </label>
+      </div>
+      <div class="actions">
+        <label class="toggle">
+          <input id="debug-toggle" type="checkbox" />
+          Debug 线框
+        </label>
+        <button id="clear-frozen" type="button">清空冻结窗口</button>
+      </div>
+      <p class="hint">
+        普通模式：双手张开，三组指尖之间形成三个滤镜区域。
+        新模式：双手拇指食指靠拢进入，两手的拇指食指中点作为窗口的对角，实时跟随；双手同时捏合复制窗口，松开后才能再次复制，每次复制后窗口切换到下一个滤镜。
+      </p>
+    </footer>
+  </div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
