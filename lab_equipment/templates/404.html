@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block title %}未找到{% endblock %}
+{% block content %}
+<div class="card empty"><h2>页面或记录不存在</h2><a href="{{ url_for('index') }}">返回首页</a></div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% macro status_badge(r, now) -%}
+  {%- if r.status == '已预约' and now and r.end_time < now -%}
+    <span class="badge s-过期" title="预约时间已过但未签到">已过期未签到</span>
+  {%- else -%}
+    <span class="badge s-{{ r.status }}">{{ r.status }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro actions(r, compact=true) -%}
+  {% set cls = 'btn btn-sm' if compact else 'btn' %}
+  {% if r.status == '已预约' %}
+    <form class="inline" method="post" action="{{ url_for('reservation_checkin', rid=r.id) }}">
+      <button class="{{ cls }} btn-success">上机签到</button></form>
+    <form class="inline" method="post" action="{{ url_for('reservation_cancel', rid=r.id) }}"
+          onsubmit="return confirm('确定取消该预约?')">
+      <button class="{{ cls }}">取消</button></form>
+  {% elif r.status == '使用中' %}
+    <form class="inline" method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}">
+      <button class="{{ cls }} btn-primary">下机签退</button></form>
+  {% endif %}
+{%- endmacro %}

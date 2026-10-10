@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}日程 {{ day }}{% endblock %}
+{% block head %}
+<style>
+  .timeline { position: relative; }
+  .tl-row { display: grid; grid-template-columns: 180px 1fr; border-bottom: 1px solid var(--border); min-height: 44px; }
+  .tl-row:last-child { border-bottom: none; }
+  .tl-name { padding: 10px 10px 10px 0; }
+  .tl-track { position: relative; background:
+      repeating-linear-gradient(to right, transparent 0, transparent calc(100%/24 - 1px), var(--border) calc(100%/24 - 1px), var(--border) calc(100%/24)); }
+  .tl-hours { display: grid; grid-template-columns: 180px 1fr; color: var(--muted); font-size: 12px; }
+  .tl-hours .scale { display: grid; grid-template-columns: repeat(24, 1fr); }
+  .tl-bar { position: absolute; top: 6px; bottom: 6px; border-radius: 4px; padding: 2px 6px; font-size: 12px;
+            overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #fff; }
+  .tl-bar:hover { text-decoration: none; filter: brightness(1.1); z-index: 2; }
+  .b-已预约 { background: var(--primary); }
+  .b-使用中 { background: var(--info); }
+  .b-已完成 { background: var(--success); }
+  .b-爽约 { background: var(--warning); }
+  .tl-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); z-index: 3; }
+  .legend span { margin-right: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  @media (max-width: 640px) {
+    .tl-row, .tl-hours { grid-template-columns: 90px 1fr; }
+    .tl-hours .scale span:nth-child(odd) { visibility: hidden; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>仪器日程
+  <span class="actions">
+    <a class="btn" href="{{ url_for('schedule', date=prev_day) }}">‹ 前一天</a>
+    <form method="get" class="inline"><input type="date" name="date" value="{{ day }}" onchange="this.form.submit()" style="width:auto"></form>
+    <a class="btn" href="{{ url_for('schedule', date=next_day) }}">后一天 ›</a>
+  </span>
+</h1>
+<div class="card">
+  <div class="legend muted" style="margin-bottom:10px">
+    <span><i class="b-已预约"></i>已预约</span><span><i class="b-使用中"></i>使用中</span>
+    <span><i class="b-已完成"></i>已完成</span><span><i class="b-爽约"></i>爽约</span>
+    <span>· 点击空白处可预约, 点击色块查看详情</span>
+  </div>
+  {% if equipment %}
+  <div class="tl-hours"><div></div><div class="scale">{% for h in range(24) %}<span>{{ h }}</span>{% endfor %}</div></div>
+  <div class="timeline">
+    {% for e in equipment %}
+    <div class="tl-row">
+      <div class="tl-name"><a href="{{ url_for('equipment_detail', eid=e.id) }}">{{ e.name }}</a>
+        {% if e.status != '可用' %}<span class="badge s-{{ e.status }}">{{ e.status }}</span>{% endif %}</div>
+      <div class="tl-track" {% if e.status == '可用' %}data-eid="{{ e.id }}" style="cursor:pointer"{% endif %}>
+        {% for b in lanes[e.id] %}
+        <a class="tl-bar b-{{ b.r.status }}" style="left:{{ b.left }}%;width:{{ b.width }}%"
+           href="{{ url_for('reservation_detail', rid=b.r.id) }}"
+           title="{{ b.r.user_name }} · {{ b.r.start_time|t }} ~ {{ b.r.end_time|t }} · {{ b.r.status }}{% if b.r.purpose %} · {{ b.r.purpose }}{% endif %}">
+          {{ b.r.user_name }} {{ b.r.start_time[11:] }}-{{ b.r.end_time[11:] }}</a>
+        {% endfor %}
+        {% if now_pct is not none %}<div class="tl-now" style="left:{{ now_pct }}%"></div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty">暂无仪器</div>{% endif %}
+</div>
+<script>
+  // 点击时间轴空白处: 以所点的整点为开始时间创建预约
+  document.querySelectorAll('.tl-track[data-eid]').forEach(function (track) {
+    track.addEventListener('click', function (ev) {
+      if (ev.target !== track) return;
+      var rect = track.getBoundingClientRect();
+      var hour = Math.floor((ev.clientX - rect.left) / rect.width * 24);
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      var url = new URL('{{ url_for("reservation_new") }}', location.href);
+      url.searchParams.set('equipment_id', track.dataset.eid);
+      url.searchParams.set('start', '{{ day }}T' + pad(hour) + ':00');
+      location.href = url;
+    });
+  });
+</script>
+{% endblock %}
