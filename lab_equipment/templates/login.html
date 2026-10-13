@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}登录{% endblock %}
+{% block content %}
+<div class="card" style="max-width:360px;margin:48px auto">
+  <h1 style="justify-content:center">登录</h1>
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="margin-bottom:12px"><label>用户名</label><input name="username" required autofocus></div>
+    <div style="margin-bottom:16px"><label>密码</label><input name="password" type="password" required></div>
+    <button class="btn btn-primary" style="width:100%">登录</button>
+  </form>
+</div>
+{% endblock %}

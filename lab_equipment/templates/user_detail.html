@@ -5,9 +5,11 @@
 <h1>{{ user.name }} <span class="muted" style="font-weight:normal;font-size:14px">{{ user.role }} · {{ user.department }}</span>
   <span class="actions">
     <a class="btn btn-primary" href="{{ url_for('reservation_new', user_id=user.id) }}">为其预约</a>
+    {% if current_user.role == ROLE_ADMIN %}
     <form class="inline" method="post" action="{{ url_for('user_delete', uid=user.id) }}"
-          onsubmit="return confirm('删除使用人将同时删除其全部预约与使用记录, 确定?')">
+          onsubmit="return confirm('删除使用人将同时删除其全部预约与使用记录, 确定?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn btn-danger">删除</button></form>
+    {% endif %}
   </span>
 </h1>
 
@@ -21,7 +23,7 @@
   <div class="card stat"><div class="num">{{ records|selectattr('status', 'equalto', '爽约')|list|length }}</div><div class="label">爽约次数</div></div>
 </div>
 
-<form class="card" method="post">
+<form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h2>基本信息</h2>
   <div class="form-grid">
     <div><label>姓名 *</label><input name="name" required value="{{ user.name }}"></div>

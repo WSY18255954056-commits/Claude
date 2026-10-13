@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}账号管理{% endblock %}
+{% block content %}
+<h1>账号管理</h1>
+
+<form class="card" method="post" action="{{ url_for('accounts') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2>新建账号</h2>
+  <div class="form-grid">
+    <div><label>用户名 *</label><input name="username" required></div>
+    <div><label>初始密码 * (至少 8 位)</label><input name="password" type="password" minlength="8" required></div>
+    <div><label>角色 *</label>
+      <select name="role">{% for key, label in ACCOUNT_ROLES.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+    <div style="align-self:end"><button class="btn btn-primary">创建</button></div>
+  </div>
+  <p class="muted" style="margin:12px 0 0">管理员: 可管理仪器、删除数据、管理账号。操作员: 可预约、上机签退、登记使用记录。</p>
+</form>
+
+<div class="card table-wrap">
+  <h2>现有账号</h2>
+  <table>
+    <tr><th>用户名</th><th>角色</th><th>创建时间</th><th>修改角色 / 重置密码</th><th></th></tr>
+    {% for a in rows %}
+    <tr>
+      <td>{{ a.username }}{% if a.id == current_user.id %} <span class="muted">(当前)</span>{% endif %}</td>
+      <td><span class="badge {{ 's-已预约' if a.role == ROLE_ADMIN else 's-已完成' }}">{{ ACCOUNT_ROLES[a.role] }}</span></td>
+      <td>{{ a.created_at|t }}</td>
+      <td>
+        <form method="post" action="{{ url_for('account_update', aid=a.id) }}" class="filters" style="flex-wrap:nowrap"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <select name="role" style="width:auto">{% for key, label in ACCOUNT_ROLES.items() %}<option value="{{ key }}" {{ 'selected' if key == a.role }}>{{ label }}</option>{% endfor %}</select>
+          <input name="password" type="password" placeholder="新密码(留空不改)" minlength="8" style="width:auto;min-width:160px">
+          <button class="btn btn-sm">保存</button>
+        </form>
+      </td>
+      <td>{% if a.id != current_user.id %}
+        <form class="inline" method="post" action="{{ url_for('account_delete', aid=a.id) }}"
+              onsubmit="return confirm('确定删除账号「{{ a.username }}」?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-danger">删除</button></form>
+        {% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

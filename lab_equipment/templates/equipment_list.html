@@ -2,7 +2,7 @@
 {% block title %}仪器列表{% endblock %}
 {% block content %}
 <h1>仪器列表
-  <span class="actions"><a class="btn btn-primary" href="{{ url_for('equipment_new') }}">+ 添加仪器</a></span>
+  {% if current_user.role == ROLE_ADMIN %}<span class="actions"><a class="btn btn-primary" href="{{ url_for('equipment_new') }}">+ 添加仪器</a></span>{% endif %}
 </h1>
 
 <form class="card filters" method="get">

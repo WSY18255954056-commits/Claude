@@ -2,7 +2,7 @@
 {% block title %}使用人{% endblock %}
 {% block content %}
 <h1>使用人</h1>
-<form class="card" method="post">
+<form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h2>添加使用人</h2>
   <div class="form-grid">
     <div><label>姓名 *</label><input name="name" required></div>

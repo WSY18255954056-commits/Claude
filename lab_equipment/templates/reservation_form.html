@@ -5,7 +5,7 @@
 {% if not users %}
 <div class="flash flash-info">还没有使用人, 请先 <a href="{{ url_for('users') }}">添加使用人</a>。</div>
 {% endif %}
-<form class="card" method="post">
+<form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="form-grid">
     <div><label>仪器 *</label>
       <select name="equipment_id" required>

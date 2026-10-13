@@ -47,7 +47,7 @@
       <td>{{ r.start_time|t }} ~ {{ r.end_time[11:] }}</td>
       <td>
         <a class="btn btn-sm" href="{{ url_for('reservation_detail', rid=r.id) }}">补录使用时间</a>
-        <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}">
+        <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-sm btn-danger">标记爽约</button></form>
       </td>
     </tr>

@@ -9,13 +9,13 @@
 {% macro actions(r, compact=true) -%}
   {% set cls = 'btn btn-sm' if compact else 'btn' %}
   {% if r.status == '已预约' %}
-    <form class="inline" method="post" action="{{ url_for('reservation_checkin', rid=r.id) }}">
+    <form class="inline" method="post" action="{{ url_for('reservation_checkin', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="{{ cls }} btn-success">上机签到</button></form>
     <form class="inline" method="post" action="{{ url_for('reservation_cancel', rid=r.id) }}"
-          onsubmit="return confirm('确定取消该预约?')">
+          onsubmit="return confirm('确定取消该预约?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="{{ cls }}">取消</button></form>
   {% elif r.status == '使用中' %}
-    <form class="inline" method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}">
+    <form class="inline" method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="{{ cls }} btn-primary">下机签退</button></form>
   {% endif %}
 {%- endmacro %}

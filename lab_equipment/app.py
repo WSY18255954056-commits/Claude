@@ -9,6 +9,7 @@
     - 日程视图: 按天查看所有仪器的预约时间轴
     - 统计报表: 按仪器 / 按使用人统计预约时长、实际使用时长、爽约次数
     - 数据导出: 使用记录导出 CSV
+    - 账号与权限: 登录后才能使用; 管理员 / 操作员两种角色; 表单带 CSRF 校验
 
 运行:
     pip install -r requirements.txt
@@ -16,13 +17,18 @@
 """
 
 import csv
+import functools
+import hmac
 import io
 import os
+import secrets
 import sqlite3
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 from flask import (Flask, Response, abort, flash, g, redirect,
-                   render_template, request, url_for)
+                   render_template, request, session, url_for)
+from werkzeug.security import check_password_hash, generate_password_hash
 
 TIME_FMT = "%Y-%m-%dT%H:%M"
 
@@ -37,6 +43,13 @@ CANCELLED = "已取消"
 NO_SHOW = "爽约"
 RESERVATION_STATUSES = [BOOKED, IN_USE, DONE, CANCELLED, NO_SHOW]
 ACTIVE_STATUSES = (BOOKED, IN_USE)  # 占用时间段的状态
+
+# 账号角色
+ROLE_ADMIN = "admin"        # 管理员: 全部权限
+ROLE_OPERATOR = "operator"  # 操作员: 预约、上机、使用记录; 不能改仪器主数据、删除数据、管理账号
+ACCOUNT_ROLES = {ROLE_ADMIN: "管理员", ROLE_OPERATOR: "操作员"}
+MIN_PASSWORD_LENGTH = 8
+PUBLIC_ENDPOINTS = {"login", "static"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -83,6 +96,14 @@ CREATE TABLE IF NOT EXISTS maintenance (
     content       TEXT NOT NULL,
     operator      TEXT DEFAULT '',
     cost          REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS accounts (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    username       TEXT NOT NULL UNIQUE,
+    password_hash  TEXT NOT NULL,
+    role           TEXT NOT NULL DEFAULT 'operator',
+    created_at     TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_res_equipment ON reservations(equipment_id, start_time);
@@ -191,10 +212,47 @@ def validate_reservation(db, form, exclude_id=None):
 # 应用工厂
 # --------------------------------------------------------------------------
 
+def csrf_token():
+    """返回当前会话的 CSRF 令牌, 没有则生成。"""
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
+    return session["csrf_token"]
+
+
+def ensure_admin(db):
+    """没有任何账号时创建管理员。返回随机生成的初始密码 (仅此时非 None)。"""
+    if db.execute("SELECT COUNT(*) FROM accounts").fetchone()[0]:
+        return None
+    configured = os.environ.get("LAB_ADMIN_PASSWORD")
+    password = configured or secrets.token_urlsafe(9)
+    db.execute("INSERT INTO accounts (username, password_hash, role, created_at) VALUES (?,?,?,?)",
+               ("admin", generate_password_hash(password), ROLE_ADMIN, now_str()))
+    db.commit()
+    return None if configured else password
+
+
+def admin_required(view):
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if g.user is None or g.user["role"] != ROLE_ADMIN:
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def safe_next_url(target):
+    """只允许跳转到本站路径, 防止开放重定向。"""
+    parsed = urlparse(target or "")
+    if target and target.startswith("/") and not parsed.netloc and not parsed.scheme:
+        return target
+    return url_for("index")
+
+
 def create_app(config=None):
     app = Flask(__name__)
     app.config.update(
-        SECRET_KEY=os.environ.get("SECRET_KEY", "lab-equipment-dev-key"),
+        # 未配置时每次启动随机生成: 重启后需重新登录; 多进程部署请务必设置固定值
+        SECRET_KEY=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
         DATABASE=os.environ.get(
             "LAB_DB", os.path.join(os.path.dirname(os.path.abspath(__file__)), "lab.db")),
     )
@@ -220,8 +278,130 @@ def create_app(config=None):
 
     with app.app_context():
         get_db().executescript(SCHEMA)
+        initial_password = ensure_admin(get_db())
+    if initial_password:
+        print(f"\n[首次启动] 已创建管理员账号 admin, 初始密码: {initial_password}\n"
+              "请登录后尽快修改; 也可以用环境变量 LAB_ADMIN_PASSWORD 指定初始密码。\n")
 
     app.get_db = get_db
+
+    @app.before_request
+    def load_user_and_check_access():
+        uid = session.get("account_id")
+        g.user = (get_db().execute("SELECT id, username, role FROM accounts WHERE id=?",
+                                   (uid,)).fetchone() if uid else None)
+        if request.method == "POST":
+            token = request.form.get("csrf_token", "")
+            if not token or not hmac.compare_digest(token, session.get("csrf_token", "")):
+                abort(400, "表单已过期或校验失败, 请刷新页面后重试")
+        if request.endpoint not in PUBLIC_ENDPOINTS and g.user is None:
+            return redirect(url_for("login", next=request.full_path.rstrip("?")))
+
+    # 全局函数对宏同样可见 (宏默认拿不到 context processor 的变量)
+    app.jinja_env.globals["csrf_token"] = csrf_token
+
+    @app.context_processor
+    def inject_globals():
+        return {"current_user": g.get("user"),
+                "ROLE_ADMIN": ROLE_ADMIN, "ACCOUNT_ROLES": ACCOUNT_ROLES}
+
+    # ------------------------------------------------------------------ 登录 / 退出
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            row = get_db().execute("SELECT * FROM accounts WHERE username=?",
+                                   (username,)).fetchone()
+            if row and check_password_hash(row["password_hash"], password):
+                session.clear()  # 登录后轮换会话与 CSRF 令牌, 防止会话固定
+                session["account_id"] = row["id"]
+                csrf_token()
+                return redirect(safe_next_url(request.args.get("next")))
+            flash("用户名或密码错误", "danger")
+        return render_template("login.html")
+
+    @app.route("/logout", methods=["POST"])
+    def logout():
+        session.clear()
+        flash("已退出登录", "info")
+        return redirect(url_for("login"))
+
+    # ------------------------------------------------------------------ 账号管理 (管理员)
+    def _admin_count(db):
+        return db.execute("SELECT COUNT(*) FROM accounts WHERE role=?",
+                          (ROLE_ADMIN,)).fetchone()[0]
+
+    @app.route("/accounts", methods=["GET", "POST"])
+    @admin_required
+    def accounts():
+        db = get_db()
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            role = request.form.get("role")
+            if not username:
+                flash("用户名不能为空", "danger")
+            elif len(password) < MIN_PASSWORD_LENGTH:
+                flash(f"密码至少 {MIN_PASSWORD_LENGTH} 位", "danger")
+            elif role not in ACCOUNT_ROLES:
+                flash("角色无效", "danger")
+            else:
+                try:
+                    db.execute("INSERT INTO accounts (username, password_hash, role, created_at) "
+                               "VALUES (?,?,?,?)",
+                               (username, generate_password_hash(password), role, now_str()))
+                    db.commit()
+                    flash(f"已创建账号「{username}」", "success")
+                except sqlite3.IntegrityError:
+                    flash(f"用户名「{username}」已存在", "danger")
+            return redirect(url_for("accounts"))
+        rows = db.execute("SELECT id, username, role, created_at FROM accounts ORDER BY id").fetchall()
+        return render_template("accounts.html", rows=rows)
+
+    @app.route("/accounts/<int:aid>/update", methods=["POST"])
+    @admin_required
+    def account_update(aid):
+        db = get_db()
+        row = db.execute("SELECT * FROM accounts WHERE id=?", (aid,)).fetchone()
+        if row is None:
+            abort(404)
+        role = request.form.get("role")
+        password = request.form.get("password", "")
+        demoting_admin = row["role"] == ROLE_ADMIN and role != ROLE_ADMIN
+        if role not in ACCOUNT_ROLES:
+            flash("角色无效", "danger")
+        elif aid == g.user["id"] and demoting_admin:
+            flash("不能修改自己的角色", "danger")
+        elif demoting_admin and _admin_count(db) <= 1:
+            flash("至少需要保留一名管理员", "danger")
+        elif password and len(password) < MIN_PASSWORD_LENGTH:
+            flash(f"密码至少 {MIN_PASSWORD_LENGTH} 位", "danger")
+        else:
+            db.execute("UPDATE accounts SET role=? WHERE id=?", (role, aid))
+            if password:
+                db.execute("UPDATE accounts SET password_hash=? WHERE id=?",
+                           (generate_password_hash(password), aid))
+            db.commit()
+            flash(f"已更新账号「{row['username']}」", "success")
+        return redirect(url_for("accounts"))
+
+    @app.route("/accounts/<int:aid>/delete", methods=["POST"])
+    @admin_required
+    def account_delete(aid):
+        db = get_db()
+        row = db.execute("SELECT * FROM accounts WHERE id=?", (aid,)).fetchone()
+        if row is None:
+            abort(404)
+        if aid == g.user["id"]:
+            flash("不能删除当前登录的账号", "danger")
+        elif row["role"] == ROLE_ADMIN and _admin_count(db) <= 1:
+            flash("至少需要保留一名管理员", "danger")
+        else:
+            db.execute("DELETE FROM accounts WHERE id=?", (aid,))
+            db.commit()
+            flash(f"已删除账号「{row['username']}」", "warning")
+        return redirect(url_for("accounts"))
 
     # ------------------------------------------------------------------ 首页
     @app.route("/")
@@ -289,6 +469,7 @@ def create_app(config=None):
         }
 
     @app.route("/equipment/new", methods=["GET", "POST"])
+    @admin_required
     def equipment_new():
         if request.method == "POST":
             data = _equipment_form_data()
@@ -331,6 +512,7 @@ def create_app(config=None):
                                maint=maint, summary=summary, today=now_str()[:10])
 
     @app.route("/equipment/<int:eid>/edit", methods=["GET", "POST"])
+    @admin_required
     def equipment_edit(eid):
         item = _get_equipment(eid)
         if request.method == "POST":
@@ -349,6 +531,7 @@ def create_app(config=None):
         return render_template("equipment_form.html", item=item, statuses=EQUIPMENT_STATUSES)
 
     @app.route("/equipment/<int:eid>/delete", methods=["POST"])
+    @admin_required
     def equipment_delete(eid):
         item = _get_equipment(eid)
         db = get_db()
@@ -358,6 +541,7 @@ def create_app(config=None):
         return redirect(url_for("equipment_list"))
 
     @app.route("/equipment/<int:eid>/maintenance", methods=["POST"])
+    @admin_required
     def maintenance_add(eid):
         _get_equipment(eid)
         content = request.form.get("content", "").strip()
@@ -378,6 +562,7 @@ def create_app(config=None):
         return redirect(url_for("equipment_detail", eid=eid))
 
     @app.route("/maintenance/<int:mid>/delete", methods=["POST"])
+    @admin_required
     def maintenance_delete(mid):
         db = get_db()
         row = db.execute("SELECT * FROM maintenance WHERE id=?", (mid,)).fetchone()
@@ -441,6 +626,7 @@ def create_app(config=None):
         return render_template("user_detail.html", user=user, records=records, roles=USER_ROLES)
 
     @app.route("/users/<int:uid>/delete", methods=["POST"])
+    @admin_required
     def user_delete(uid):
         db = get_db()
         db.execute("DELETE FROM users WHERE id=?", (uid,))
@@ -647,6 +833,7 @@ def create_app(config=None):
         return redirect(url_for("reservation_detail", rid=rid))
 
     @app.route("/reservations/<int:rid>/delete", methods=["POST"])
+    @admin_required
     def reservation_delete(rid):
         _get_reservation(rid)
         db = get_db()

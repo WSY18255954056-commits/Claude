@@ -8,7 +8,7 @@
     {% if r.status == '已预约' %}
       <a class="btn" href="{{ url_for('reservation_edit', rid=r.id) }}">修改</a>
       {% if r.start_time < now %}
-      <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}">
+      <form class="inline" method="post" action="{{ url_for('reservation_noshow', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn btn-danger">标记爽约</button></form>
       {% endif %}
     {% endif %}
@@ -43,7 +43,7 @@
     </dl>
 
     {% if r.status == '使用中' %}
-    <form method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}" style="margin-top:12px">
+    <form method="post" action="{{ url_for('reservation_checkout', rid=r.id) }}" style="margin-top:12px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>使用情况 / 异常说明 (签退时填写)</label>
       <textarea name="usage_note">{{ r.usage_note }}</textarea>
       <p style="margin-bottom:0"><button class="btn btn-primary">下机签退</button></p>
@@ -56,7 +56,7 @@
 <div class="card">
   <h2>{{ '修正' if r.status == '已完成' else '补录' }}实际使用时间</h2>
   <p class="muted" style="margin-top:0">适用于忘记签到/签退, 或需要更正实际使用时间的情况。保存后预约状态将变为「已完成」。</p>
-  <form method="post" action="{{ url_for('reservation_record', rid=r.id) }}">
+  <form method="post" action="{{ url_for('reservation_record', rid=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">
       <div><label>实际开始时间 *</label><input type="datetime-local" name="actual_start" required value="{{ r.actual_start or r.start_time }}"></div>
       <div><label>实际结束时间 *</label><input type="datetime-local" name="actual_end" required value="{{ r.actual_end or (r.end_time if r.end_time < now else now) }}"></div>
@@ -67,7 +67,9 @@
 </div>
 {% endif %}
 
-<form method="post" action="{{ url_for('reservation_delete', rid=r.id) }}" onsubmit="return confirm('确定永久删除这条记录?')">
+{% if current_user.role == ROLE_ADMIN %}
+<form method="post" action="{{ url_for('reservation_delete', rid=r.id) }}" onsubmit="return confirm('确定永久删除这条记录?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button class="btn btn-danger btn-sm">删除此记录</button>
 </form>
+{% endif %}
 {% endblock %}

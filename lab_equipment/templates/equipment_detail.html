@@ -6,10 +6,12 @@
   <span class="actions">
     {% if item.status == '可用' %}<a class="btn btn-primary" href="{{ url_for('reservation_new', equipment_id=item.id) }}">预约此仪器</a>{% endif %}
     <a class="btn" href="{{ url_for('schedule', date=today) }}">查看日程</a>
+    {% if current_user.role == ROLE_ADMIN %}
     <a class="btn" href="{{ url_for('equipment_edit', eid=item.id) }}">编辑</a>
     <form class="inline" method="post" action="{{ url_for('equipment_delete', eid=item.id) }}"
-          onsubmit="return confirm('删除仪器将同时删除其所有预约和维护记录, 确定?')">
+          onsubmit="return confirm('删除仪器将同时删除其所有预约和维护记录, 确定?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn btn-danger">删除</button></form>
+    {% endif %}
   </span>
 </h1>
 
@@ -56,21 +58,23 @@
 
 <div class="card">
   <h2>维护记录</h2>
-  <form method="post" action="{{ url_for('maintenance_add', eid=item.id) }}" class="filters" style="margin-bottom:12px">
+  {% if current_user.role == ROLE_ADMIN %}
+  <form method="post" action="{{ url_for('maintenance_add', eid=item.id) }}" class="filters" style="margin-bottom:12px"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div><label>日期</label><input type="date" name="date" value="{{ today }}"></div>
     <div style="flex:1;min-width:220px"><label>维护内容 *</label><input name="content" required style="width:100%"></div>
     <div><label>操作人</label><input name="operator"></div>
     <div><label>费用 (元)</label><input name="cost" type="number" min="0" step="0.01"></div>
     <div><button class="btn btn-primary">添加</button></div>
   </form>
+  {% endif %}
   {% if maint %}
   <div class="table-wrap"><table>
     <tr><th>日期</th><th>内容</th><th>操作人</th><th class="num-col">费用</th><th></th></tr>
     {% for m in maint %}
     <tr><td>{{ m.date }}</td><td>{{ m.content }}</td><td>{{ m.operator }}</td>
         <td class="num-col">{{ '%.2f'|format(m.cost or 0) }}</td>
-        <td><form class="inline" method="post" action="{{ url_for('maintenance_delete', mid=m.id) }}"
-                  onsubmit="return confirm('删除该维护记录?')"><button class="btn btn-sm btn-danger">删除</button></form></td></tr>
+        <td>{% if current_user.role == ROLE_ADMIN %}<form class="inline" method="post" action="{{ url_for('maintenance_delete', mid=m.id) }}"
+                  onsubmit="return confirm('删除该维护记录?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-danger">删除</button></form>{% endif %}</td></tr>
     {% endfor %}
   </table></div>
   {% else %}<div class="empty">暂无维护记录</div>{% endif %}

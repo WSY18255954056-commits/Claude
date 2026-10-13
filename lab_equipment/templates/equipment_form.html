@@ -2,7 +2,7 @@
 {% block title %}{{ '编辑仪器' if item.id else '添加仪器' }}{% endblock %}
 {% block content %}
 <h1>{{ '编辑仪器' if item.id else '添加仪器' }}</h1>
-<form class="card" method="post">
+<form class="card" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="form-grid">
     <div><label>名称 *</label><input name="name" required value="{{ item.name or '' }}"></div>
     <div><label>型号</label><input name="model" value="{{ item.model or '' }}"></div>
